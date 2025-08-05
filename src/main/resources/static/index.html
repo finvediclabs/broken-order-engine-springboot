@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Broken Order Matching Engine - Test Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .order-book {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .order-book h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .order-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .buy { color: #28a745; }
+        .sell { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>Broken Order Matching Engine - Test Interface</h1>
+    
+    <div class="grid">
+        <div class="container">
+            <h2>Place Order</h2>
+            <form id="orderForm">
+                <div class="form-group">
+                    <label for="symbol">Symbol:</label>
+                    <input type="text" id="symbol" value="AAPL" required>
+                </div>
+                <div class="form-group">
+                    <label for="side">Side:</label>
+                    <select id="side" required>
+                        <option value="BUY">BUY</option>
+                        <option value="SELL">SELL</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="type">Type:</label>
+                    <select id="type" required>
+                        <option value="LIMIT">LIMIT</option>
+                        <option value="MARKET">MARKET</option>
+                        <option value="STOP">STOP</option>
+                        <option value="STOP_LIMIT">STOP_LIMIT</option>
+                        <option value="ICEBERG">ICEBERG</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Quantity:</label>
+                    <input type="number" id="quantity" value="100" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="price">Price:</label>
+                    <input type="number" id="price" value="150.00" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="traderId">Trader ID:</label>
+                    <input type="text" id="traderId" value="TRADER001" required>
+                </div>
+                <button type="submit">Place Order</button>
+                <button type="button" onclick="getOrderBook()">Refresh Order Book</button>
+            </form>
+            <div id="orderResult" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="container">
+            <h2>Order Book - AAPL</h2>
+            <div class="order-book">
+                <h3>Buy Orders (Bids)</h3>
+                <div id="buyOrders"></div>
+                <h3>Sell Orders (Asks)</h3>
+                <div id="sellOrders"></div>
+            </div>
+            <button onclick="getOrderBook()">Refresh</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>Recent Trades</h2>
+        <button onclick="getTrades()">Get Recent Trades</button>
+        <div id="tradesResult" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        document.getElementById('orderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const orderData = {
+                symbol: document.getElementById('symbol').value,
+                side: document.getElementById('side').value,
+                type: document.getElementById('type').value,
+                quantity: parseFloat(document.getElementById('quantity').value),
+                price: parseFloat(document.getElementById('price').value),
+                traderId: document.getElementById('traderId').value
+            };
+            
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(orderData)
+                });
+                
+                const result = await response.json();
+                const resultDiv = document.getElementById('orderResult');
+                resultDiv.style.display = 'block';
+                resultDiv.className = result.success ? 'result success' : 'result error';
+                resultDiv.textContent = JSON.stringify(result, null, 2);
+                
+                if (result.success) {
+                    setTimeout(getOrderBook, 1000);
+                }
+            } catch (error) {
+                const resultDiv = document.getElementById('orderResult');
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Error: ' + error.message;
+            }
+        });
+        
+        async function getOrderBook() {
+            try {
+                const response = await fetch('/api/market/orderbook/AAPL');
+                const orderBook = await response.json();
+                
+                displayOrderBook(orderBook);
+            } catch (error) {
+                console.error('Error fetching order book:', error);
+            }
+        }
+        
+        function displayOrderBook(orderBook) {
+            const buyOrdersDiv = document.getElementById('buyOrders');
+            const sellOrdersDiv = document.getElementById('sellOrders');
+            
+            buyOrdersDiv.innerHTML = '';
+            sellOrdersDiv.innerHTML = '';
+            
+            if (orderBook.buyOrders) {
+                Object.entries(orderBook.buyOrders).forEach(([price, orders]) => {
+                    const totalQty = orders.reduce((sum, order) => sum + parseFloat(order.quantity), 0);
+                    const div = document.createElement('div');
+                    div.className = 'order-row buy';
+                    div.innerHTML = `<span>${price}</span><span>${totalQty}</span>`;
+                    buyOrdersDiv.appendChild(div);
+                });
+            }
+            
+            if (orderBook.sellOrders) {
+                Object.entries(orderBook.sellOrders).forEach(([price, orders]) => {
+                    const totalQty = orders.reduce((sum, order) => sum + parseFloat(order.quantity), 0);
+                    const div = document.createElement('div');
+                    div.className = 'order-row sell';
+                    div.innerHTML = `<span>${price}</span><span>${totalQty}</span>`;
+                    sellOrdersDiv.appendChild(div);
+                });
+            }
+        }
+        
+        async function getTrades() {
+            try {
+                const response = await fetch('/api/trades/symbol/AAPL');
+                const trades = await response.json();
+                
+                const resultDiv = document.getElementById('tradesResult');
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result success';
+                resultDiv.textContent = JSON.stringify(trades, null, 2);
+            } catch (error) {
+                const resultDiv = document.getElementById('tradesResult');
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        // Load order book on page load
+        window.onload = function() {
+            getOrderBook();
+        };
+    </script>
+</body>
+</html> 
